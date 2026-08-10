@@ -48,9 +48,9 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/YOUR_USERNAME/drishtipy"
-Repository = "https://github.com/YOUR_USERNAME/drishtipy"
-Issues = "https://github.com/YOUR_USERNAME/drishtipy/issues"
+Homepage = "https://github.com/drishtipy/drishtipy"
+Repository = "https://github.com/drishtipy/drishtipy"
+Issues = "https://github.com/drishtipy/drishtipy/issues"
 
 [tool.setuptools.packages.find]
 include = ["drishtipy*"]
