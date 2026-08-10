@@ -157,20 +157,6 @@ df = pd.read_csv("data.csv")
 df.profile.quality()
 ```
 
-### Development installation
-
-```bash
-pip install -e .
-```
-
-For development dependencies:
-
-```bash
-pip install -e ".[dev]"
-```
-
----
-
 ## 🐼 Designed for pandas
 
 `drishtipy` extends the familiar pandas workflow with a `.profile` accessor.
@@ -475,13 +461,7 @@ The ML report can identify:
 - Scaling recommendations
 - Feature status
 - Potentially problematic columns
-
-If implemented by the current version, a high-level readiness summary can be exposed through:
-
-```python
-df.profile.ml_readiness()
-```
-
+  
 ---
 
 ## 🔄 ETL Readiness
@@ -796,53 +776,6 @@ HTML reports and summaries are designed to make data problems easy to understand
 
 ---
 
-## 🧪 Development
-
-Install development dependencies:
-
-```bash
-pip install -e ".[dev]"
-```
-
-Run tests:
-
-```bash
-pytest
-```
-
-Recommended workflow:
-
-```bash
-git clone <repository>
-cd drishtipy
-
-pip install -e ".[dev]"
-
-pytest
-```
-
----
-
-## 🗺️ Roadmap
-
-Potential future capabilities include:
-
-- Advanced validation rules
-- Automatic cleaning suggestions
-- Smart semantic data-type detection
-- Data dictionary generation
-- Time-series profiling
-- Advanced ML-readiness checks
-- Data drift detection
-- Statistical distribution analysis
-- Excel profiling
-- JSON profiling
-- Parquet profiling
-- SQL database profiling
-- Expanded interactive HTML dashboards
-- Additional data-quality checks
-
----
 
 ## 📦 Package Information
 
