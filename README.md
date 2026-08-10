@@ -20,44 +20,44 @@ The goal is simple:
 ## ⚡ See It in Action
 
 ```python
-import pandas as pd 
-import drishtipy 
-df = pd.read_csv("data.csv") 
+import pandas as pd
+import drishtipy
+df = pd.read_csv("data.csv")
 
-# Complete profile 
-df.profile.info() 
+# Complete profile
+df.profile.info()
 
-# Data structure 
-df.profile.schema() 
+# Data structure
+df.profile.schema()
 
-# Statistical analysis 
-df.profile.statistics() 
+# Statistical analysis
+df.profile.statistics()
 
-# Data quality analysis 
-df.profile.quality() 
+# Data quality analysis
+df.profile.quality()
 
-# ML readiness & suggestions 
-df.profile.ml() 
+# ML readiness & suggestions
+df.profile.ml()
 
-# ETL readiness & cleaning issues 
-df.profile.etl() 
+# ETL readiness & cleaning issues
+df.profile.etl()
 
-# Overall data quality score 
-df.profile.quality_score() 
+# Overall data quality score
+df.profile.quality_score()
 
-# Data quality alerts 
-df.profile.alerts() 
+# Data quality alerts
+df.profile.alerts()
 
-# Potential PII detection 
-df.profile.pii() 
+# Potential PII detection
+df.profile.pii()
 
-# Correlation analysis 
-df.profile.correlations(by="pairs") 
+# Correlation analysis
+df.profile.correlations(by="pairs")
 
-# Generate a shareable HTML report 
+# Generate a shareable HTML report
 df.profile.html("report.html")
 
-#Compares two DataFrames and generates an HTML before/after report
+# Compares two DataFrames and generates an HTML before/after report
 df.profile.compare_html(df2, path="compare.html")
 ```
 
@@ -157,6 +157,20 @@ df = pd.read_csv("data.csv")
 df.profile.quality()
 ```
 
+### Development installation
+
+```bash
+pip install -e .
+```
+
+For development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+---
+
 ## 🐼 Designed for pandas
 
 `drishtipy` extends the familiar pandas workflow with a `.profile` accessor.
@@ -213,16 +227,12 @@ Inspect the structure of your DataFrame:
 df.profile.schema()
 ```
 
-The schema report provides information such as:
+The schema report includes one row per column with:
 
-- Column name
-- pandas dtype
-- Non-null count
-- Missing count
-- Missing percentage
-- Unique count
-- Uniqueness
-- Memory usage
+- Column name and pandas dtype
+- Non-null count, missing count, missing %
+- Unique count, unique %
+- Memory usage (bytes)
 
 ---
 
@@ -234,19 +244,9 @@ Generate descriptive statistics:
 df.profile.statistics()
 ```
 
-Depending on the data type, the report can include:
-
-- Count
-- Mean
-- Median
-- Minimum
-- Maximum
-- Standard deviation
-- Quantiles
-- Mode
-- Skewness
-- Kurtosis
-- Cardinality
+One row per column, with (for numeric columns) count, mean, median, std,
+min/Q1/Q2/Q3/95th/99th percentile/max, range, IQR, skewness, and kurtosis —
+plus mode and mode frequency for every column regardless of dtype.
 
 ---
 
@@ -260,99 +260,100 @@ df.profile.quality()
 
 The quality report includes:
 
-- Missing values
-- Duplicate values
-- Zero values
-- IQR-based outliers
-- Outlier percentage
+- Duplicate value count (per column)
+- Missing value count
+- Zero count (numeric columns)
+- IQR-based outlier count and outlier % (numeric columns)
 
 Example:
 
 ```text
-Column    Missing Count    Duplicate Count    Outlier Count    Outlier %
------------------------------------------------------------------------
-age       1                0                  0                0.00
-salary    0                0                  1                25.00
-city      0                1                  -                -
+Column    Duplicate Count    Missing Count    Zero Count    Outlier Count    Outlier %
+------------------------------------------------------------------------------------
+age                     0                1             0                0        0.00
+salary                  0                0             0                1       25.00
+city                    1                0          None             None        None
 ```
 
 ---
 
 ## ⭐ Quality Score
 
-Get a quick assessment of your dataset:
+Get a quick, weighted assessment of your dataset across five dimensions —
+Missing Values, Duplicates, Outliers, Data Types, and Invalid Values:
 
 ```python
 df.profile.quality_score()
 ```
 
-Example:
+Example output (a `Metric` / `Score` DataFrame):
 
 ```text
-Overall Quality Score: 91.4 / 100
-Grade: A
-
-Missing Values    96.2
-Duplicates       100.0
-Outliers           88.7
-Consistency        92.5
-Completeness       95.4
+                 Metric  Score
+ Overall Quality Score   88.4
+         Missing Values  92.0
+             Duplicates 100.0
+               Outliers  71.0
+             Data Types  95.0
+         Invalid Values  84.0
 ```
 
-For a column-level breakdown:
+For a column-level breakdown (one row per column, plus a per-column
+`Quality Score`):
 
 ```python
-df.profile.quality_score(
-    by="column"
-)
+df.profile.quality_score(by="column")
 ```
 
 Filter by column type:
 
 ```python
-df.profile.quality_score(
-    column_type="numeric"
-)
+df.profile.quality_score(column_type="numeric")
 ```
 
-Custom scoring weights:
+Custom scoring weights (unspecified dimensions keep their default weight of
+20; values are normalized automatically, so they don't need to sum to 100):
 
 ```python
 df.profile.quality_score(
     weights={
         "missing": 40,
-        "outliers": 30
+        "outliers": 30,
     }
 )
 ```
 
-> **Note:** The exact score dimensions, ranges, and weight validation should match the implementation shipped in the package.
+> **Note:** `Duplicates` at the overall level measures fully duplicated
+> *rows*. At the column level (`by="column"`), it measures repeated
+> *values* within that column instead — the two aren't the same metric.
 
 ---
 
 ## 🚨 Data Quality Alerts
 
-Find important data-quality problems automatically:
+Find important data-quality problems automatically, ranked by severity, in
+one table instead of reading every section separately:
 
 ```python
 df.profile.alerts()
 ```
 
-Filter for critical issues:
+Returns a DataFrame with columns `Severity`, `Column`, `Alert`, and
+`Details` (table-wide issues like duplicate rows or correlated pairs use
+`"(table)"` as the column value). Detected alert types include: Missing
+Values, Duplicate Rows, Outliers, Constant Column, Near-Constant Column,
+Skewed Distribution, High Cardinality, Possible ID Column, Wrong Data Type,
+Empty Strings, Extra Whitespace, Zero-Heavy Column, Highly Correlated Pair,
+and Potential PII.
+
+Filter for critical issues only:
 
 ```python
-df.profile.alerts(
-    min_severity="high"
-)
+df.profile.alerts(min_severity="high")
 ```
 
-Alerts are organized by severity:
-
-```text
-High
-Medium
-Low
-```
+`min_severity` accepts `"high"` (High only), `"medium"` (High + Medium), or
+`"low"` (everything — the default).
 
 ---
 
@@ -364,73 +365,70 @@ Detect potentially personally identifiable information:
 df.profile.pii()
 ```
 
-Potential detections can include:
+Returns a DataFrame — `Column`, `PII Type`, `Confidence %` — sorted by
+confidence, descending. Detected types:
 
-- Email addresses
-- Phone numbers
-- Identification numbers
-- IP addresses
-- Other recognizable sensitive patterns
+| Type | Meaning |
+|---|---|
+| `EMAIL` | Email addresses |
+| `PHONE` | Phone numbers (Indian mobile pattern + general) |
+| `POSSIBLE_ID` | Aadhaar-shaped 12-digit numbers |
+| `POSSIBLE_PAN` | Indian PAN format (`ABCDE1234F`) |
+| `IP` | IPv4 addresses |
+| `POSSIBLE_NAME` | Free-text columns that look like personal names |
+| `POSSIBLE_ADDRESS` | Free-text columns that look like postal addresses |
+
+The `POSSIBLE_` prefix is a reminder that ID/PAN/Name/Address detections are
+pattern/heuristic guesses, not verified PII — always review before acting on
+them (e.g. before dropping or publishing columns). `EMAIL`, `PHONE`, and
+`IP` use stricter pattern matching.
 
 Filter by confidence:
 
 ```python
-df.profile.pii(
-    min_confidence=80
-)
+df.profile.pii(min_confidence=80)
 ```
 
-For large DataFrames, scan a sample:
+For large DataFrames, only the first `sample` non-null values per column
+are scanned by default (for speed):
 
 ```python
-df.profile.pii(
-    sample=2000
-)
+df.profile.pii(sample=2000)   # default
+df.profile.pii(sample=None)   # scan every value instead
 ```
 
-Scan the complete DataFrame:
+Generate a masked copy instead of a report:
 
 ```python
-df.profile.pii(
-    sample=None
-)
+masked_df = df.profile.pii(mask=True)
 ```
 
-Generate a masked copy:
-
-```python
-masked_df = df.profile.pii(
-    mask=True
-)
-```
-
-The original DataFrame is not modified.
+`mask=True` returns a masked **copy** of the DataFrame — the original is
+never modified. Masking is type-aware (emails keep the domain, phone/ID
+numbers keep the last few digits, addresses are fully redacted, etc.).
 
 ---
 
 ## 🧮 Correlation Analysis
 
-Analyze relationships between numerical columns:
+Analyze relationships between numerical columns (Pearson by default):
 
 ```python
 df.profile.correlations()
 ```
 
-Get tidy correlation pairs:
+Returns the full column-by-column correlation matrix. Get a tidy,
+one-row-per-pair view instead, sorted by strength:
 
 ```python
-df.profile.correlations(
-    by="pairs"
-)
+df.profile.correlations(by="pairs")
 ```
 
-Find strong relationships:
+Find only strongly correlated pairs — useful for spotting multicollinearity
+candidates before modeling:
 
 ```python
-df.profile.correlations(
-    by="pairs",
-    threshold=0.8
-)
+df.profile.correlations(by="pairs", threshold=0.8)
 ```
 
 Supported methods:
@@ -440,6 +438,8 @@ df.profile.correlations(method="pearson")
 df.profile.correlations(method="spearman")
 df.profile.correlations(method="kendall")
 ```
+
+Raises `ValueError` if fewer than two numeric columns are available.
 
 ---
 
@@ -451,17 +451,11 @@ Analyze whether your DataFrame is suitable for machine-learning workflows:
 df.profile.ml()
 ```
 
-The ML report can identify:
+One row per column, including: feature type, unique count/%, missing %,
+variance, skewness, outlier %, cardinality, encoding suggestion, scaling
+suggestion, recommended transformation, and an overall feature status
+(e.g. `"Good"`) flagging columns that may need attention before modeling.
 
-- Numeric features
-- Categorical features
-- High-cardinality columns
-- Potential identifiers
-- Encoding recommendations
-- Scaling recommendations
-- Feature status
-- Potentially problematic columns
-  
 ---
 
 ## 🔄 ETL Readiness
@@ -472,15 +466,10 @@ Analyze your DataFrame for common ETL and cleaning problems:
 df.profile.etl()
 ```
 
-The ETL report can identify:
-
-- Missing values
-- Duplicate values
-- Negative values
-- Outliers
-- Empty strings
-- Text-quality problems
-- Potential cleaning actions
+One row per column, including: missing/duplicate/unique counts and %,
+zero count, negative count, empty-string count, whitespace-issue count,
+special-character count, outlier count/%, an `Issue`/`Issue Count` summary,
+an `ETL Status` (e.g. `"Ready"`), and a `Recommended Action`.
 
 ---
 
@@ -526,6 +515,8 @@ Quality
 ML
 ```
 
+(`"quality"` and `"ml"` currently produce the same column-level report.)
+
 Example:
 
 ```python
@@ -536,7 +527,15 @@ comparator.compare_dataframe(
 )
 ```
 
+The result is a long-format `DataFrame` with columns `Section`, `Metric`,
+`Before`, `After`, `Change`, and `Status` (not every row populates every
+column). Raises `TypeError` if either argument isn't a DataFrame, and
+`ValueError` for an unrecognized `level`.
+
 ### Changes only
+
+`compare_dataframe` can return dozens of rows on wide DataFrames. Keep only
+the rows where something actually changed:
 
 ```python
 comparator.compare_dataframe(
@@ -548,11 +547,21 @@ comparator.compare_dataframe(
 
 ### Compact summary
 
+A one-row-per-column view instead of the long-format table:
+
 ```python
 comparator.summary(
     before_df,
     after_df
 )
+```
+
+```text
+   Column     Status                          Summary
+0     age    Changed  missing 1->0; outliers 1->0; mean 122.5->35.17
+1    city  Unchanged                         No change
+2 new_col      Added                     Column added
+3 old_col    Removed                   Column removed
 ```
 
 ### Specific columns
@@ -566,11 +575,17 @@ comparator.compare_dataframe(
 )
 ```
 
+A column missing from one side is still reported as added/removed. Raises
+`ValueError` if a name in `columns` isn't present in either DataFrame. Note:
+`level="dataset"` metrics (row/column counts, memory, etc.) always reflect
+the full `before`/`after` DataFrames, not the selection.
+
 ---
 
 ## 🌐 HTML Reports
 
-Generate a standalone HTML report:
+Generate a standalone, dark-themed HTML report instead of raw DataFrames —
+handy for sharing a report without a notebook:
 
 ```python
 df.profile.html(
@@ -601,7 +616,11 @@ DataComparator().to_html(
 )
 ```
 
-If supported by the implementation, omitting `path` returns the HTML as a string.
+Both accept the same filtering arguments as their DataFrame-returning
+counterparts (`section`/`column_type` for `DataProfiler`, `level`/
+`changes_only`/`columns` for `DataComparator`), plus `title` for a custom
+page heading. Omitting `path` returns the HTML as a string instead of
+writing a file.
 
 ---
 
@@ -652,7 +671,15 @@ CSV file
    └── Profile the sample
 ```
 
-When sampling is used, the source row count is exact, while statistics calculated from the sample are estimates of the complete dataset.
+The file is streamed in chunks twice — once to count exact total rows, once
+to keep each row with probability `sample_size / total_rows` (a random,
+roughly-uniform sample). If the file has fewer rows than `sample_size`,
+it's loaded in full and `is_sampled` stays `False`.
+
+When sampling is used, the source row count (`total_rows_in_source`) is
+exact, while statistics/ML sections computed from the sample are estimates
+of the complete dataset. `to_html()` on a sampled profiler automatically
+notes the sample size vs. total rows in the report.
 
 Additional keyword arguments can be forwarded to `pandas.read_csv()`:
 
@@ -670,7 +697,9 @@ DataProfiler.from_csv(
 
 ## 🧱 Explicit Class API
 
-The pandas accessor is recommended, but explicit classes are also available:
+The pandas accessor is recommended, but explicit classes are also available
+— useful if you want to keep the profiler object around for repeated calls,
+or prefer not to rely on accessor registration:
 
 ```python
 import pandas as pd
@@ -687,7 +716,14 @@ profiler = DataProfiler(df)
 profiler.info_dataframe(
     section="schema"
 )
+
+profiler.quality_score()
+profiler.alerts()
+profiler.pii()
+profiler.correlations()
 ```
+
+Raises `TypeError` if `df` isn't a `pandas.DataFrame`.
 
 ---
 
@@ -704,7 +740,7 @@ profiler.info_dataframe(
 
 ### `section`
 
-Supported values:
+Supported values (case-insensitive):
 
 ```text
 All
@@ -715,25 +751,23 @@ ML
 ETL
 ```
 
-Values are case-insensitive.
-
-`All` returns a dictionary containing the five core profiling sections:
+`"All"` returns a `dict` mapping section name -> `DataFrame`:
 
 ```python
 {
-    "schema": ...,
-    "statistics": ...,
-    "quality": ...,
-    "ml": ...,
-    "etl": ...
+    "Schema": ...,
+    "Statistics": ...,
+    "Quality": ...,
+    "ML": ...,
+    "ETL": ...
 }
 ```
 
-A specific section returns that section's DataFrame.
+Any other value returns just that section's `DataFrame`.
 
 ### `column_type`
 
-Supported values:
+Supported values (case-insensitive):
 
 ```text
 All
@@ -750,6 +784,9 @@ profiler.info_dataframe(
 )
 ```
 
+Raises `ValueError` if `section` or `column_type` isn't recognized, or if
+`column_type` filters out every column.
+
 ---
 
 ## 🧠 Design Philosophy
@@ -760,22 +797,70 @@ profiler.info_dataframe(
 
 ### Lightweight
 
-The core package intentionally keeps dependencies minimal.
+The core package intentionally keeps dependencies minimal — pandas is the
+only required dependency.
 
 ### Non-destructive
 
-Profiling operations analyze the DataFrame without modifying it.
+Profiling operations analyze the DataFrame without modifying it. The one
+exception is explicit: `df.profile.pii(mask=True)` returns a masked
+**copy**, never mutating the original.
 
 ### Composable
 
-Reports remain compatible with normal pandas operations.
+Reports remain compatible with normal pandas operations — sort, filter,
+export, or display them however you like.
 
 ### Human-readable
 
-HTML reports and summaries are designed to make data problems easy to understand.
+HTML reports and summaries are designed to make data problems easy to
+understand at a glance.
 
 ---
 
+## 🧪 Development
+
+Install development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+Run tests:
+
+```bash
+pytest
+```
+
+Recommended workflow:
+
+```bash
+git clone <repository>
+cd drishtipy
+
+pip install -e ".[dev]"
+
+pytest
+```
+
+---
+
+## 🗺️ Roadmap
+
+Potential future capabilities include:
+
+- Advanced validation rules
+- Automatic cleaning suggestions
+- Smart semantic data-type/data-dictionary detection
+- Time-series profiling
+- Advanced ML-readiness checks
+- Data drift detection
+- Statistical distribution analysis
+- Excel / JSON / Parquet / SQL database profiling
+- Expanded interactive HTML dashboards
+- Additional data-quality checks
+
+---
 
 ## 📦 Package Information
 
@@ -783,10 +868,10 @@ HTML reports and summaries are designed to make data problems easy to understand
 |---|---|
 | Package | `drishtipy` |
 | Import | `drishtipy` |
-| Current Version | `0.4.0` |
+| Current Version | `0.5.1` |
 | Python | `>=3.8` |
 | License | MIT |
-| Primary Dependency | pandas |
+| Primary Dependency | pandas (>=1.3) |
 
 Install:
 
