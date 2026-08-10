@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "drishtipy"
-version = "0.5.0"
+version = "0.5.1"
 description = "Lightweight pandas data profiling, data quality, ML readiness, ETL analysis, PII detection, correlation analysis, comparison, and HTML reporting."
 readme = "README.md"
 requires-python = ">=3.8"
