@@ -56,6 +56,9 @@ df.profile.correlations(by="pairs")
 
 # Generate a shareable HTML report 
 df.profile.html("report.html")
+
+#Compares two DataFrames and generates an HTML before/after report
+df.profile.compare_html(df2, path="compare.html")
 ```
 
 That's it.
