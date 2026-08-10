@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drishtipy"
+version = "0.4.0"
+description = "Lightweight pandas data profiling, data quality, ML readiness, ETL analysis, PII detection, correlation analysis, comparison, and HTML reporting."
+readme = "README.md"
+requires-python = ">=3.8"
+
+license = { text = "MIT" }
+
+authors = [
+    { name = "M Jain" }
+]
+
+keywords = [
+    "pandas",
+    "data-profiling",
+    "data-quality",
+    "eda",
+    "etl",
+    "machine-learning",
+    "pii",
+    "data-analysis"
+]
+
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Intended Audience :: Developers"
+]
+
+dependencies = [
+    "pandas>=1.3"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "build",
+    "twine"
+]
+
+[project.urls]
+Homepage = "https://github.com/YOUR_USERNAME/drishtipy"
+Repository = "https://github.com/YOUR_USERNAME/drishtipy"
+Issues = "https://github.com/YOUR_USERNAME/drishtipy/issues"
+
+[tool.setuptools.packages.find]
+include = ["drishtipy*"]
