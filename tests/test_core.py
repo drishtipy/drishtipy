@@ -40,6 +40,63 @@ def test_all_sections_present(sample_df):
         assert len(section_df) == sample_df.shape[1]
 
 
+# =====================================================
+# PROFILE REPORT (info_dataframe(section="All") return type)
+# =====================================================
+
+
+def test_info_dataframe_all_returns_dict_subclass(sample_df):
+    report = DataProfiler(sample_df).info_dataframe()
+    assert isinstance(report, dict)
+
+
+def test_profile_report_dict_access_backward_compatible(sample_df):
+    report = DataProfiler(sample_df).info_dataframe()
+    # every access pattern a plain dict supports must still work
+    assert report["Schema"] is not None
+    assert len(report) == 5
+    assert list(report.keys()) == list(dict(report).keys())
+    for k, v in report.items():
+        assert isinstance(v, pd.DataFrame)
+    assert dict(report).keys() == report.keys()
+
+
+def test_profile_report_repr_is_dashboard_not_raw_dict(sample_df):
+    report = DataProfiler(sample_df).info_dataframe()
+    text = repr(report)
+    assert "Quality Score" in text
+    assert "Data Profile Report" in text
+    assert "{'Schema':" not in text  # not falling back to raw dict repr
+
+
+def test_profile_report_repr_html_renders_full_report(sample_df):
+    report = DataProfiler(sample_df).info_dataframe()
+    html = report._repr_html_()
+    assert "<html" in html.lower()
+    assert "Schema" in html
+    assert "Quality" in html
+
+
+def test_profile_report_repr_handles_single_column():
+    df = pd.DataFrame({"x": [1, 2, 3]})
+    report = DataProfiler(df).info_dataframe()
+    text = repr(report)
+    assert "1 column" in text
+    assert "1 columns" not in text  # singular, not "1 column(s)" or plural
+
+
+def test_profile_report_repr_no_alerts_message():
+    df = pd.DataFrame({"x": [1, 2, 3, 4, 5]})
+    report = DataProfiler(df).info_dataframe()
+    assert "No alerts" in repr(report)
+
+
+def test_profile_report_via_accessor(sample_df):
+    report = sample_df.profile.info()
+    assert isinstance(report, dict)
+    assert "Quality Score" in repr(report)
+
+
 def test_single_section_returns_dataframe(sample_df):
     schema = DataProfiler(sample_df).info_dataframe(section="Schema")
     assert isinstance(schema, pd.DataFrame)
@@ -76,6 +133,70 @@ def test_schema_missing_counts(sample_df):
     age_row = schema[schema["Column"] == "age"].iloc[0]
     assert age_row["Missing Count"] == 1
     assert age_row["Non-Null Count"] == 5
+
+
+# =====================================================
+# STATISTICS — extended dispersion / central tendency
+# =====================================================
+
+
+def test_statistics_rms_always_defined_for_numeric():
+    df = pd.DataFrame({"x": [-5, -2, 0, 3, 7]})
+    stats = DataProfiler(df).info_dataframe(section="statistics")
+    row = stats[stats["Column"] == "x"].iloc[0]
+    # RMS = sqrt(mean(x^2)), defined even with negative values
+    assert row["RMS"] == round((sum(v ** 2 for v in [-5, -2, 0, 3, 7]) / 5) ** 0.5, 4)
+
+
+def test_statistics_geometric_harmonic_mean_positive_only():
+    df = pd.DataFrame({"positive": [1, 2, 4, 8], "mixed": [1, -2, 4, 8]})
+    stats = DataProfiler(df).info_dataframe(section="statistics")
+
+    pos_row = stats[stats["Column"] == "positive"].iloc[0]
+    assert pos_row["Geometric Mean"] is not None
+    assert pos_row["Harmonic Mean"] is not None
+
+    mixed_row = stats[stats["Column"] == "mixed"].iloc[0]
+    assert pd.isna(mixed_row["Geometric Mean"])
+    assert pd.isna(mixed_row["Harmonic Mean"])
+
+
+def test_statistics_cv_percent():
+    df = pd.DataFrame({"x": [10, 10, 10, 10]})  # zero variance -> CV = 0
+    stats = DataProfiler(df).info_dataframe(section="statistics")
+    row = stats[stats["Column"] == "x"].iloc[0]
+    assert row["CV %"] == 0.0
+
+
+def test_statistics_cv_none_when_mean_zero():
+    df = pd.DataFrame({"x": [-5, 5, -3, 3]})  # mean == 0
+    stats = DataProfiler(df).info_dataframe(section="statistics")
+    row = stats[stats["Column"] == "x"].iloc[0]
+    assert pd.isna(row["CV %"])
+
+
+def test_statistics_mad_matches_manual_calc():
+    df = pd.DataFrame({"x": [1, 2, 3, 4, 5]})
+    stats = DataProfiler(df).info_dataframe(section="statistics")
+    row = stats[stats["Column"] == "x"].iloc[0]
+    mean = sum([1, 2, 3, 4, 5]) / 5
+    expected = sum(abs(v - mean) for v in [1, 2, 3, 4, 5]) / 5
+    assert row["MAD"] == round(expected, 4)
+
+
+def test_statistics_z_outlier_count_detects_extreme_value():
+    df = pd.DataFrame({"x": [10] * 20 + [100]})  # one clear extreme value
+    stats = DataProfiler(df).info_dataframe(section="statistics")
+    row = stats[stats["Column"] == "x"].iloc[0]
+    assert row["Z-Outlier Count"] >= 1
+
+
+def test_statistics_non_numeric_extended_columns_are_none():
+    df = pd.DataFrame({"city": ["Delhi", "Mumbai", "Pune"]})
+    stats = DataProfiler(df).info_dataframe(section="statistics")
+    row = stats[stats["Column"] == "city"].iloc[0]
+    for col in ("Geometric Mean", "Harmonic Mean", "RMS", "CV %", "MAD"):
+        assert pd.isna(row[col])
 
 
 def test_quality_outlier_detection(sample_df):
@@ -363,7 +484,7 @@ def test_correlations_matrix_shape(corr_df):
 
 def test_correlations_pairs_shape(corr_df):
     pairs = DataProfiler(corr_df).correlations(by="pairs")
-    assert set(pairs.columns) == {"Column A", "Column B", "Correlation"}
+    assert set(pairs.columns) == {"Column A", "Column B", "Correlation", "R²"}
     assert len(pairs) == 3  # 3 choose 2
 
 
@@ -378,6 +499,12 @@ def test_correlations_detects_strong_pair(corr_df):
     top = pairs.iloc[0]
     assert {top["Column A"], top["Column B"]} == {"a", "b"}
     assert top["Correlation"] > 0.9
+
+
+def test_correlations_r_squared_matches_correlation_squared(corr_df):
+    pairs = DataProfiler(corr_df).correlations(by="pairs")
+    for _, row in pairs.iterrows():
+        assert row["R²"] == round(row["Correlation"] ** 2, 4)
 
 
 def test_correlations_threshold_filters_weak_pairs(corr_df):

@@ -13,7 +13,7 @@ import re
 import pandas as pd
 import numpy as np
 
-from .report import render_html_report
+from .report import render_html_report, ProfileReport
 
 __all__ = ["DataProfiler"]
 
@@ -291,9 +291,12 @@ class DataProfiler:
 
         Returns
         -------
-        dict[str, pandas.DataFrame] or pandas.DataFrame
-            A dict of section name -> DataFrame when ``section="All"``,
-            otherwise a single DataFrame for the requested section.
+        ProfileReport or pandas.DataFrame
+            A ``ProfileReport`` (a ``dict[str, DataFrame]`` subclass —
+            same access patterns as a plain dict, but with a styled
+            HTML repr for Jupyter and a compact analytical summary
+            for the terminal) when ``section="All"``, otherwise a
+            single DataFrame for the requested section.
 
         Raises
         ------
@@ -352,7 +355,7 @@ class DataProfiler:
             result["ETL"] = self._etl_info(df)
 
         if section == "all":
-            return result
+            return ProfileReport(result, self, title="Data Profile Report")
 
         return result[_SECTION_MAP[section]]
 
@@ -465,18 +468,27 @@ class DataProfiler:
                 "Mode Frequency": (
                     int(s.value_counts().iloc[0]) if len(s.dropna()) else 0
                 ),
+                "Geometric Mean": None,
+                "Harmonic Mean": None,
+                "RMS": None,
+                "CV %": None,
+                "MAD": None,
+                "Z-Outlier Count": None,
             }
 
             if pd.api.types.is_numeric_dtype(s):
+                non_null = s.dropna()
                 q1 = s.quantile(0.25)
                 q2 = s.quantile(0.50)
                 q3 = s.quantile(0.75)
+                mean = s.mean()
+                std = s.std()
 
                 row.update(
                     {
-                        "Mean": round(s.mean(), 4),
+                        "Mean": round(mean, 4),
                         "Median": round(s.median(), 4),
-                        "Std": round(s.std(), 4),
+                        "Std": round(std, 4),
                         "Min": s.min(),
                         "Q1": q1,
                         "Q2": q2,
@@ -490,6 +502,34 @@ class DataProfiler:
                         "Kurtosis": round(s.kurt(), 4),
                     }
                 )
+
+                if len(non_null):
+                    # Geometric / harmonic mean are only defined for
+                    # strictly positive data — left as None otherwise
+                    # rather than silently producing a wrong number.
+                    if (non_null > 0).all():
+                        row["Geometric Mean"] = round(
+                            float(np.exp(np.log(non_null).mean())), 4
+                        )
+                        row["Harmonic Mean"] = round(
+                            float(len(non_null) / (1.0 / non_null).sum()), 4
+                        )
+
+                    row["RMS"] = round(
+                        float(np.sqrt((non_null ** 2).mean())), 4
+                    )
+                    row["MAD"] = round(
+                        float((non_null - non_null.mean()).abs().mean()), 4
+                    )
+
+                    if pd.notna(mean) and mean != 0:
+                        row["CV %"] = round(float(std / abs(mean) * 100), 4)
+
+                    if len(non_null) > 1 and pd.notna(std) and std != 0:
+                        z = (non_null - non_null.mean()) / std
+                        row["Z-Outlier Count"] = int((z.abs() > 3).sum())
+                    else:
+                        row["Z-Outlier Count"] = 0
 
             rows.append(row)
 
@@ -968,7 +1008,12 @@ class DataProfiler:
             "matrix" returns the full column-by-column correlation
             matrix. "pairs" returns a tidy DataFrame — one row per
             column pair — sorted by correlation strength (descending,
-            by absolute value).
+            by absolute value), with an ``R²`` column
+            (``Correlation ** 2``). ``R²`` is the exact
+            variance-explained figure from a single-predictor linear
+            regression when ``method="pearson"``; for
+            ``"spearman"``/``"kendall"`` it's a rank-based analog, not
+            a literal linear R².
         threshold : float, optional
             Only used when ``by="pairs"``. Keep only pairs whose
             absolute correlation is at least this value, e.g. ``0.8``
@@ -1034,12 +1079,13 @@ class DataProfiler:
                         "Column A": c1,
                         "Column B": c2,
                         "Correlation": round(float(val), 4),
+                        "R²": round(float(val) ** 2, 4),
                         "_abs": abs(val),
                     }
                 )
 
         result = pd.DataFrame(
-            pairs, columns=["Column A", "Column B", "Correlation", "_abs"]
+            pairs, columns=["Column A", "Column B", "Correlation", "R²", "_abs"]
         )
 
         if threshold is not None:

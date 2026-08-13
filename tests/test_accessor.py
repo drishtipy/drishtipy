@@ -143,6 +143,23 @@ def test_alerts_min_severity_via_accessor():
     assert set(result["Severity"]) <= {"High"}
 
 
+def test_profile_of_returns_same_accessor_type():
+    from drishtipy import profile_of, ProfileAccessor
+
+    df = pd.DataFrame({"a": [1, 2, 3]})
+    accessor = profile_of(df)
+    assert isinstance(accessor, ProfileAccessor)
+
+
+def test_profile_of_equivalent_to_accessor():
+    from drishtipy import profile_of
+
+    df = pd.DataFrame({"constant_col": [5, 5, 5, 5, 5]})
+    direct = df.profile.alerts()
+    via_helper = profile_of(df).alerts()
+    pd.testing.assert_frame_equal(direct, via_helper)
+
+
 def test_accessor_reflects_mutation(df):
     # Accessor should always reflect the current state of the DataFrame
     schema_before = df.profile.schema()

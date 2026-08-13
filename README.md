@@ -4,8 +4,10 @@
 
 [![PyPI](https://img.shields.io/pypi/v/drishtipy.svg)](https://pypi.org/project/drishtipy/)
 [![Python](https://img.shields.io/pypi/pyversions/drishtipy.svg)](https://pypi.org/project/drishtipy/)
+[![Downloads](https://img.shields.io/pypi/dm/drishtipy.svg)](https://pypi.org/project/drishtipy/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-pytest-green.svg)](#development)
+[![GitHub](https://img.shields.io/badge/GitHub-drishtipy-black.svg)](https://github.com/drishtipy/drishtipy)
 
 > **Understand your DataFrame in seconds.**
 
@@ -22,10 +24,13 @@ The goal is simple:
 ```python
 import pandas as pd
 import drishtipy
+or
+from drishtipy import profile_of  # ✅ full autocomplete + type checking
+
 df = pd.read_csv("data.csv")
 
 # Complete profile
-df.profile.info()
+df.profile.info() or profile_of(df).info()
 
 # Data structure
 df.profile.schema()
@@ -62,7 +67,6 @@ df.profile.compare_html(df2, path="compare.html")
 ```
 
 That's it.
-
 No complex configuration. No wrapper object required.
 
 Just import `drishtipy` and use:
@@ -868,7 +872,7 @@ Potential future capabilities include:
 |---|---|
 | Package | `drishtipy` |
 | Import | `drishtipy` |
-| Current Version | `0.5.1` |
+| Current Version | `0.5.2` |
 | Python | `>=3.8` |
 | License | MIT |
 | Primary Dependency | pandas (>=1.3) |
