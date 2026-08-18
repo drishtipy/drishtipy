@@ -64,6 +64,13 @@ df.profile.html("report.html")
 
 # Compares two DataFrames and generates an HTML before/after report
 df.profile.compare_html(df2, path="compare.html")
+
+# Auto-discover relationships across every column pair
+df.profile.relationships()
+or 
+df.profile.relationships().to_html("relationships.html")  
+or
+df.profile.relationships().to_html("relationships.html", style="table")
 ```
 
 That's it.
@@ -141,6 +148,7 @@ Give `drishtipy` a pandas DataFrame and quickly answer questions like:
 | **Comparison** | Compare DataFrames before and after transformations |
 | **HTML Reports** | Generate standalone, shareable reports |
 | **Large CSV** | Profile large CSV files using chunking and sampling |
+| **Relationship Discovery** | Auto-detect, score, and rank relationships between every pair of columns |
 
 ---
 
@@ -628,6 +636,157 @@ writing a file.
 
 ---
 
+## 🕸️ Relationship Discovery
+
+For a 50-column dataset, there are 50×49/2 = 1,225 possible column pairs —
+nobody is manually checking all of them. `relationships()` scans every pair
+automatically, picks a statistically appropriate method based on each
+column's *semantic* type (not just its pandas dtype), filters out pairs
+that can't be meaningfully compared, and ranks what's left:
+
+```python
+result = df.profile.relationships()
+result          # DRISHTIPY — RELATIONSHIP DISCOVERY dashboard, like info()
+```
+
+```text
+DRISHTIPY — RELATIONSHIP DISCOVERY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Columns analyzed:       15
+Possible pairs:         105
+Pairs analyzed:         91
+Ignored pairs:          20
+
+Meaningful relationships: 27
+Strong:                    8
+Moderate:                  7
+Weak:                      12
+
+TOP RELATIONSHIPS
+
+  Region             ↔ City               1.00 🔥
+  Category           ↔ Product            1.00 🔥
+  Sales_Amount       ↔ Cost               1.00 🔥
+  Sales_Amount       ↔ Profit             0.98 🔥
+  Cost               ↔ Profit             0.96 🔥
+
+result.top(20) / .matrix() / .graph() / .insights() / .dependencies()
+```
+
+### What gets compared, and how
+
+Each pair is routed to a method based on **semantic type**
+(`drishtipy.semantic.detect_semantic_type` — id, numeric, categorical,
+boolean, date/datetime, email, phone, currency, percentage, text,
+constant), not raw pandas dtype:
+
+| Pair type | Method | Notes |
+|---|---|---|
+| numeric ↔ numeric | Pearson **and** Spearman | The stronger of the two wins — a monotonic non-linear relationship that Pearson underrates still gets caught |
+| categorical ↔ numeric | ANOVA effect size (η²) | Also reports a p-value from an F-test when scipy is installed |
+| categorical ↔ categorical | Cramér's V + normalized Mutual Information | Built from a contingency table with pandas/numpy only — no scipy required for the effect size itself |
+| date ↔ numeric | Spearman trend | Direction reported as Increasing / Decreasing / Flat |
+
+Pairs that can't be meaningfully compared are **filtered out before any
+statistics run**: ID ↔ anything, constant columns, free text, and
+email/phone columns are excluded by default (`RelationshipConfig(include_id_pairs=True)`
+opts back in for advanced use).
+
+### Configuring thresholds
+
+```python
+from drishtipy import RelationshipConfig
+
+result = df.profile.relationships(
+    RelationshipConfig(
+        strong_threshold=0.80,
+        moderate_threshold=0.50,
+        min_sample_size=30,
+        max_categories=50,     # categorical columns above this are skipped
+        max_pairs=5_000,       # safety cap for very wide DataFrames
+        sample_size=100_000,   # rows; None disables sampling
+    )
+)
+```
+
+If a pair doesn't have enough valid (non-null, overlapping) observations,
+it's reported as `"Not enough valid observations"` rather than a
+misleading score.
+
+### Views on the result
+
+```python
+result.top(20)               # ranked DataFrame of the strongest relationships
+result.matrix()               # symmetric strength matrix (method varies per cell — see below)
+result.graph(top=20)          # RelationshipGraph: nodes + weighted edges
+result.graph(threshold=0.70)  # only edges at/above a strength cutoff
+result.insights()             # auto-generated, human-readable observations
+result.dependencies()         # potential functional dependencies (farmer_id -> farmer_name)
+result.redundant_columns()    # column groups that look like duplicates/derived copies
+result.to_dataframe()         # the full, unfiltered results table
+result.to_json()
+result.to_html("relationships.html")
+```
+
+`result.to_html()` renders a standalone KPI-card dashboard by default — top
+relationships, an inline-SVG relationship graph, color-coded insight cards,
+and a dependencies list, all computed from the actual result (not a static
+mockup):
+
+```python
+result.to_html("relationships.html")                    # dashboard style (default)
+result.to_html("relationships.html", style="table")      # plain multi-section tables instead
+result.to_html("relationships.html", top_n=10, graph_top=15)
+```
+
+The graph is real SVG with a computed circular layout (works for any number
+of nodes), not a fixed set of hand-placed positions — the most-connected
+column gets a highlighted "hub" style, matching how it's usually the one
+worth investigating first.
+
+`result.matrix()` is **not** a plain correlation matrix — each cell's value
+comes from whichever method fit that pair's semantic types, so don't treat
+the whole matrix as linear-correlation strength.
+
+`result.graph()` returns nodes/edges and a readable adjacency-list view —
+not a rendered image. Building an actual force-directed layout needs a
+graph/plotting stack (networkx, matplotlib) this library intentionally
+doesn't depend on; `result.graph().edges` is meant to be handed to one of
+those directly if you want a visual layout.
+
+### Functional dependencies and redundant columns
+
+Beyond correlation, `relationships()` checks whether one column's values
+consistently determine another's (e.g. `farmer_id -> farmer_name`), and
+flags column groups that appear to store the same information twice (exact
+duplicates, or near-perfectly correlated numeric/categorical pairs) —
+language is deliberately hedged ("Potential functional dependency",
+consistency %) rather than claiming certainty the data may not fully
+support.
+
+### Multiple testing and significance
+
+With hundreds of pairs analyzed at once, some correlations will look
+"significant" by chance alone. When [scipy](https://scipy.org) is
+installed (`pip install drishtipy[relationships]`), p-values are computed
+per pair and corrected for multiple testing via Benjamini-Hochberg FDR
+by default (`RelationshipConfig(fdr_correction=False)` to disable). Without
+scipy, effect sizes (Pearson/Spearman/η²/Cramér's V) are still computed —
+`Significance` just reports `"Unknown (scipy not installed)"` instead of
+guessing.
+
+### Integration
+
+```python
+df.profile.relationships()          # via the accessor
+df.profile.info().relationships()   # chained from the full profile report
+DataProfiler(df).relationships()    # via the explicit class API
+```
+
+---
+
+
 ## 📁 Large CSV Profiling
 
 Profile large CSV files without loading the entire source into memory:
@@ -872,7 +1031,7 @@ Potential future capabilities include:
 |---|---|
 | Package | `drishtipy` |
 | Import | `drishtipy` |
-| Current Version | `0.5.2` |
+| Current Version | `0.6.0` |
 | Python | `>=3.8` |
 | License | MIT |
 | Primary Dependency | pandas (>=1.3) |

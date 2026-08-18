@@ -1429,6 +1429,50 @@ class DataProfiler:
         }
 
     # =====================================================
+    # RELATIONSHIP DISCOVERY
+    # =====================================================
+
+    def relationships(self, config: "RelationshipConfig | None" = None):
+        """
+        Automatically discover, score, and rank relationships between
+        every pair of columns that can be meaningfully compared —
+        instead of requiring column pairs to be picked by hand.
+
+        Uses semantic column types (not just pandas dtype) to choose
+        an appropriate method per pair: Pearson/Spearman for
+        numeric-numeric, eta-squared (ANOVA effect size) for
+        categorical-numeric, Cramér's V (plus normalized mutual
+        information) for categorical-categorical, and a Spearman-based
+        trend for date-numeric. ID columns, constants, free text, and
+        email/phone columns are excluded from scoring by default (see
+        ``RelationshipConfig.include_id_pairs`` to override), but ID
+        columns are still checked separately for potential functional
+        dependencies (e.g. ``farmer_id -> farmer_name``).
+
+        Parameters
+        ----------
+        config : RelationshipConfig, optional
+            Tunable thresholds/limits. See ``RelationshipConfig`` for
+            every field; defaults are reasonable for most datasets.
+
+        Returns
+        -------
+        RelationshipResult
+            ``.top(n)``, ``.matrix()``, ``.graph()``, ``.insights()``,
+            ``.dependencies()``, ``.redundant_columns()``,
+            ``.to_dataframe()``, ``.to_json()``, ``.to_html()``.
+
+        Examples
+        --------
+        >>> result = df.profile.relationships()
+        >>> result.top(10)
+        >>> result.insights()
+        """
+        from .relationships import RelationshipAnalyzer
+
+        return RelationshipAnalyzer(self.df, config).analyze()
+
+    # =====================================================
     # MACHINE LEARNING
     # =====================================================
 

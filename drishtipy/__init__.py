@@ -11,10 +11,19 @@ import pandas as pd
 from .core import DataProfiler
 from .compare import DataComparator
 from .accessor import ProfileAccessor
+from .relationships import RelationshipAnalyzer, RelationshipConfig, RelationshipResult
 from . import accessor  # noqa: F401  (import registers df.profile accessor)
 
-__version__ = "0.5.2"
-__all__ = ["DataProfiler", "DataComparator", "ProfileAccessor", "profile_of"]
+__version__ = "0.6.0"
+__all__ = [
+    "DataProfiler",
+    "DataComparator",
+    "ProfileAccessor",
+    "profile_of",
+    "RelationshipAnalyzer",
+    "RelationshipConfig",
+    "RelationshipResult",
+]
 
 
 def profile_of(df: pd.DataFrame) -> ProfileAccessor:

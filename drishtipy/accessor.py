@@ -21,6 +21,7 @@ accessor as a side effect:
     df.profile.correlations()
     df.profile.correlations(by="pairs", threshold=0.8)
     df.profile.alerts()
+    df.profile.relationships()
     df.profile.ml()
     df.profile.etl()
     df.profile.html("report.html")
@@ -348,6 +349,37 @@ class ProfileAccessor:
         >>> df.profile.alerts(min_severity="high")
         """
         return self._p.alerts(column_type=column_type, min_severity=min_severity)
+
+    def relationships(self, config=None):
+        """
+        Automatically discover, score, and rank relationships between
+        every meaningfully-comparable pair of columns, instead of
+        picking column pairs by hand.
+
+        Parameters
+        ----------
+        config : RelationshipConfig, optional
+            Tunable thresholds/limits (strong/moderate cutoffs,
+            sample size, max pairs, etc). Defaults are reasonable for
+            most datasets — see ``drishtipy.RelationshipConfig``.
+
+        Returns
+        -------
+        RelationshipResult
+            ``.top(n)``, ``.matrix()``, ``.graph()``, ``.insights()``,
+            ``.dependencies()``, ``.redundant_columns()``,
+            ``.to_dataframe()``, ``.to_json()``, ``.to_html()``.
+
+        Examples
+        --------
+        >>> result = df.profile.relationships()
+        >>> result.top(10)
+        >>> result.insights()
+
+        >>> from drishtipy import RelationshipConfig
+        >>> df.profile.relationships(RelationshipConfig(strong_threshold=0.9))
+        """
+        return self._p.relationships(config=config)
 
     def ml(self, column_type: str = "All") -> pd.DataFrame:
         """

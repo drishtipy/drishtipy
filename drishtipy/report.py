@@ -282,3 +282,12 @@ class ProfileReport(dict):
 
     def __repr__(self) -> str:
         return render_dashboard(self)
+
+    def relationships(self, config=None):
+        """
+        Shortcut to ``DataProfiler.relationships()`` for the same
+        DataFrame this report was generated from — lets you chain
+        straight from ``df.profile.info()`` into relationship
+        discovery: ``df.profile.info().relationships()``.
+        """
+        return self._profiler.relationships(config=config)
